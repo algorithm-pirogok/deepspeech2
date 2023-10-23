@@ -47,7 +47,7 @@ class DeepSpeech2(BaseModel):
                         padding=params['padding']
                     ),
                     nn.BatchNorm2d(params['out_channels']),
-                    nn.ReLU()
+                    nn.ReLU6()
                 ) for ind, params in enumerate(params_for_convolutions['convolutions'])
             ])
 
@@ -66,7 +66,7 @@ class DeepSpeech2(BaseModel):
         self.batch_norm = nn.BatchNorm1d(num_features=2 * params_for_rnn['hidden_size'])
         self.final_stage = Sequential(
             nn.Linear(in_features=2 * params_for_rnn['hidden_size'], out_features=fc_hidden),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(in_features=fc_hidden, out_features=n_class),
         )
 

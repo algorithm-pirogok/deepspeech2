@@ -17,7 +17,7 @@ class RNN(nn.Module):
     def __init__(self, input_size: int,
                  hidden_size: int = 256,
                  rnn_model: str = 'LSTM',
-                 unlinear: str = 'ReLU',
+                 unlinear: str = 'LeakyReLU',
                  dropout: float = 0.05,
                  bidirectional: bool = True,
                  batch_norm: bool = True):
@@ -33,7 +33,7 @@ class RNN(nn.Module):
         # x: (batch, feature, time)
         total_length = x.size(2)
         if self.is_norm:
-            x = nn.functional.relu(self.batch_norm(x))
+            x = nn.functional.leaky_relu(self.batch_norm(x))
         ans = torch.nn.utils.rnn.pack_padded_sequence(x.transpose(1, 2),
                                                       batch_first=True,
                                                       lengths=length_rnn,
