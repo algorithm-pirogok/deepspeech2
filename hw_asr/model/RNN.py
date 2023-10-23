@@ -16,8 +16,8 @@ class RNN(nn.Module):
 
     def __init__(self, input_size: int,
                  hidden_size: int = 256,
-                 rnn_model: str = 'LSTM',
-                 unlinear: str = 'LeakyReLU',
+                 rnn_model: str = 'GRU',
+                 unlinear: str = 'ReLU',
                  dropout: float = 0.05,
                  bidirectional: bool = True,
                  batch_norm: bool = True):

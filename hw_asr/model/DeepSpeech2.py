@@ -47,7 +47,7 @@ class DeepSpeech2(BaseModel):
                         padding=params['padding']
                     ),
                     nn.BatchNorm2d(params['out_channels']),
-                    nn.ReLU6()
+                    nn.Hardtanh()
                 ) for ind, params in enumerate(params_for_convolutions['convolutions'])
             ])
 
@@ -64,11 +64,7 @@ class DeepSpeech2(BaseModel):
         )
         self.is_norm = params_for_rnn['batch_norm']
         self.batch_norm = nn.BatchNorm1d(num_features=2 * params_for_rnn['hidden_size'])
-        self.final_stage = Sequential(
-            nn.Linear(in_features=2 * params_for_rnn['hidden_size'], out_features=fc_hidden),
-            nn.LeakyReLU(),
-            nn.Linear(in_features=fc_hidden, out_features=n_class),
-        )
+        self.final_stage = nn.Linear(in_features=2 * params_for_rnn['hidden_size'], out_features=n_class)
 
     def forward(self, spectrogram: torch.Tensor, **batch):
         # print("BEFORE ALL", spectrogram.shape)
