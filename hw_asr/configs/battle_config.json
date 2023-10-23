@@ -173,7 +173,7 @@
     "visualize": "wandb",
     "wandb_project": "librispeech",
     "wandb_name": "base deepspeech2",
-    "len_epoch": 256,
+    "len_epoch": 250,
     "grad_norm_clip": 10
   }
 }
