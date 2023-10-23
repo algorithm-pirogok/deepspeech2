@@ -31,6 +31,7 @@ class DeepSpeech2(BaseModel):
                     kernel_size=params['kernel_size'],
                     dilation=params['dilation'],
                     stride=params['stride'],
+                    bias=False,
                     padding=params['padding']
                 ) for ind, params in enumerate(params_for_convolutions['convolutions'])
             ])
@@ -44,6 +45,7 @@ class DeepSpeech2(BaseModel):
                         kernel_size=params['kernel_size'],
                         dilation=params['dilation'],
                         stride=params['stride'],
+                        bias=False,
                         padding=params['padding']
                     ),
                     nn.BatchNorm2d(params['out_channels']),
@@ -77,7 +79,7 @@ class DeepSpeech2(BaseModel):
             spectrogram = rnn(spectrogram, self.transform_input_lengths(batch['spectrogram_length']))
 
         if self.is_norm:
-            spectrogram = nn.functional.relu(self.batch_norm(spectrogram))
+            spectrogram = nn.functional.leaky_relu(self.batch_norm(spectrogram))
         # print("BEFOR FINAL:", spectrogram.shape)
         return {"logits": self.final_stage(spectrogram.transpose(1, 2))}
 
