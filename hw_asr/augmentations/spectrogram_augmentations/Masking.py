@@ -7,7 +7,7 @@ from hw_asr.augmentations.base import AugmentationBase
 
 
 class Masking(AugmentationBase):
-    def __init__(self, p: float, freq_max: int, time_max: int, *args, **kwargs):
+    def __init__(self, p: float, freq_max: int = 20, time_max: int = 30, *args, **kwargs):
         self._p = p
         self._freq_aug = FrequencyMasking(freq_max, *args, **kwargs)  # 1 augmentation
         self._time_aug = TimeMasking(time_max, *args, **kwargs)  # 2 augmentation
