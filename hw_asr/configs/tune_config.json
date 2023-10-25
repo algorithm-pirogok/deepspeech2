@@ -148,50 +148,51 @@
     {
       "type": "WERMetric",
       "args": {
-        "name": "WER (argmax)"
-      },
-      "train": true,
-      "mode": "argmax"
+        "name": "WER (argmax)",
+        "train": true,
+        "mode": "argmax"
+
+      }
     },
     {
       "type": "WERMetric",
       "args": {
-        "name": "WER (beam-search)"
-      },
-      "train": false,
-      "mode": "beam-search"
+        "name": "WER (beam-search)",
+        "train": false,
+        "mode": "beam-search"
+      }
     },
     {
       "type": "WERMetric",
       "args": {
-        "name": "WER (language model)"
-      },
-      "train": false,
-      "mode": "lm"
+        "name": "WER (language model)",
+        "train": false,
+        "mode": "lm"
+      }
     },
     {
       "type": "CERMetric",
       "args": {
-        "name": "CER (argmax)"
-      },
-      "train": true,
-      "mode": "argmax"
+        "name": "CER (argmax)",
+        "train": true,
+        "mode": "argmax"
+      }
     },
     {
       "type": "CERMetric",
       "args": {
-        "name": "CER (beam-search)"
-      },
-      "train": false,
-      "mode": "beam-search"
+        "name": "CER (beam-search)",
+        "train": false,
+        "mode": "beam-search"
+      }
     },
     {
       "type": "CERMetric",
       "args": {
-        "name": "CER (language model)"
-      },
-      "train": false,
-      "mode": "lm"
+        "name": "CER (language model)",
+        "train": false,
+        "mode": "lm"
+      }
     }
   ],
   "lr_scheduler": {
