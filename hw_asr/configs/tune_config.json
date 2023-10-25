@@ -1,5 +1,5 @@
 {
-  "name": "other_config",
+  "name": "tune_config",
   "n_gpu": 1,
   "preprocessing": {
     "sr": 16000,
@@ -15,7 +15,7 @@
       {
         "type": "Gain",
         "args": {
-          "p": 0.25
+          "p": 0.2
         }
       }
     ],
@@ -36,7 +36,7 @@
       "params_for_rnn": {
         "count": 6,
         "hidden_size": 512,
-        "rnn_model": "GRU",
+        "rnn_model": "LSTM",
         "dropout": 0.1,
         "bidirectional": true,
         "batch_norm": true
@@ -135,9 +135,9 @@
     }
   },
   "optimizer": {
-    "type": "Adagrad",
+    "type": "Adam",
     "args": {
-      "lr": 1e-4
+      "lr": 2e-4
     }
   },
   "loss": {
@@ -146,16 +146,52 @@
   },
   "metrics": [
     {
-      "type": "ArgmaxWERMetric",
+      "type": "WERMetric",
       "args": {
         "name": "WER (argmax)"
-      }
+      },
+      "train": true,
+      "mode": "argmax"
     },
     {
-      "type": "ArgmaxCERMetric",
+      "type": "WERMetric",
+      "args": {
+        "name": "WER (beam-search)"
+      },
+      "train": false,
+      "mode": "beam-search"
+    },
+    {
+      "type": "WERMetric",
+      "args": {
+        "name": "WER (language model)"
+      },
+      "train": false,
+      "mode": "lm"
+    },
+    {
+      "type": "CERMetric",
       "args": {
         "name": "CER (argmax)"
-      }
+      },
+      "train": true,
+      "mode": "argmax"
+    },
+    {
+      "type": "CERMetric",
+      "args": {
+        "name": "CER (beam-search)"
+      },
+      "train": false,
+      "mode": "beam-search"
+    },
+    {
+      "type": "CERMetric",
+      "args": {
+        "name": "CER (language model)"
+      },
+      "train": false,
+      "mode": "lm"
     }
   ],
   "lr_scheduler": {
@@ -166,7 +202,7 @@
     }
   },
   "trainer": {
-    "epochs": 220,
+    "epochs": 500,
     "save_dir": "saved/",
     "save_period": 5,
     "verbosity": 2,
@@ -174,8 +210,8 @@
     "early_stop": 60,
     "visualize": "wandb",
     "wandb_project": "librispeech",
-    "wandb_name": "Deepspeech2 GRU 100+500",
-    "len_epoch": 400,
+    "wandb_name": "Clean LM",
+    "len_epoch": 1000,
     "grad_norm_clip": 10
   }
 }
