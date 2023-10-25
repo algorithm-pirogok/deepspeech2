@@ -19,7 +19,7 @@ class CTCCharTextEncoder(CharTextEncoder):
         super().__init__(alphabet)
         vocab = [self.EMPTY_TOK] + list(self.alphabet)
         self.decoding_mode = "ctc" if path_to_lm is None else "lm"
-        self.decoder = build_ctcdecoder(list(self.alphabet), kenlm_model_path=path_to_lm)
+        self.decoder = build_ctcdecoder([''] + list(self.alphabet), kenlm_model_path=path_to_lm)
         self.ind2char = dict(enumerate(vocab))
         self.char2ind = {v: k for k, v in self.ind2char.items()}
 
