@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import List, NamedTuple
 
 import torch
+from pyctcdecode import build_ctcdecoder
 
 from .char_text_encoder import CharTextEncoder
 
@@ -14,9 +15,11 @@ class Hypothesis(NamedTuple):
 class CTCCharTextEncoder(CharTextEncoder):
     EMPTY_TOK = "^"
 
-    def __init__(self, alphabet: List[str] = None):
+    def __init__(self, alphabet: List[str] = None, path_to_lm: str = "data/lm/language_model.arpa"):
         super().__init__(alphabet)
         vocab = [self.EMPTY_TOK] + list(self.alphabet)
+        self.decoding_mode = "ctc" if path_to_lm is None else "lm"
+        self.decoder = build_ctcdecoder(list(self.alphabet), kenlm_model_path=path_to_lm)
         self.ind2char = dict(enumerate(vocab))
         self.char2ind = {v: k for k, v in self.ind2char.items()}
 
@@ -32,11 +35,12 @@ class CTCCharTextEncoder(CharTextEncoder):
         return ''.join(results)
 
     def ctc_beam_search(self, probs: torch.tensor, probs_length,
-                        beam_size: int = 100) -> List[Hypothesis]:
+                        beam_size: int = 15, **kwargs) -> List[Hypothesis]:
         """
         Performs beam search and returns a list of pairs (hypothesis, hypothesis probability).
         """
         assert len(probs.shape) == 2
+        probs = probs[:probs_length]
         char_length, voc_size = probs.shape
         assert voc_size == len(self.ind2char)
 
@@ -58,7 +62,7 @@ class CTCCharTextEncoder(CharTextEncoder):
 
         def _truncate(state_dict):
             state_list = list(state_dict.items())
-            return dict(state_list.sort(key=lambda x: -x[1])[:beam_size])
+            return dict(sorted(state_list, key=lambda x: -x[1].item())[:beam_size])
 
         state = {('', self.EMPTY_TOK): 1.0}
         for frame in probs:
@@ -67,3 +71,8 @@ class CTCCharTextEncoder(CharTextEncoder):
 
         hypos: List[Hypothesis] = [Hypothesis(seq, prob) for (seq, _), prob in state.items()]
         return sorted(hypos, key=lambda x: x.prob, reverse=True)
+
+    def lm_beam_search(self, probs: torch.tensor, probs_length, **kwargs):
+        assert len(probs.shape) == 2
+        probs = probs[:probs_length].detach().cpu().numpy()
+        return self.decoder.decode(probs)

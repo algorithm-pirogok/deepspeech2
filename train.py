@@ -48,7 +48,10 @@ def main(config):
         config.init_obj(metric_dict, module_metric, text_encoder=text_encoder)
         for metric_dict in config["metrics"]
     ]
-
+    metrics_test = metrics
+    metrics_train = [
+        metric for metric in metrics if metric.train
+    ]
     # build optimizer, learning rate scheduler. delete every line containing lr_scheduler for
     # disabling scheduler
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
@@ -58,7 +61,8 @@ def main(config):
     trainer = Trainer(
         model,
         loss_module,
-        metrics,
+        metrics_train,
+        metrics_test,
         optimizer,
         text_encoder=text_encoder,
         config=config,

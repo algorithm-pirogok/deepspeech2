@@ -3,6 +3,7 @@ from pathlib import Path
 from random import shuffle
 
 import PIL
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
@@ -26,7 +27,8 @@ class Trainer(BaseTrainer):
             self,
             model,
             criterion,
-            metrics,
+            metrics_train,
+            metrics_test,
             optimizer,
             config,
             device,
@@ -36,7 +38,7 @@ class Trainer(BaseTrainer):
             len_epoch=None,
             skip_oom=True,
     ):
-        super().__init__(model, criterion, metrics, optimizer, config, device)
+        super().__init__(model, criterion, metrics_train, metrics_test, optimizer, config, device)
         self.skip_oom = skip_oom
         self.text_encoder = text_encoder
         self.config = config
@@ -50,13 +52,13 @@ class Trainer(BaseTrainer):
             self.len_epoch = len_epoch
         self.evaluation_dataloaders = {k: v for k, v in dataloaders.items() if k != "train"}
         self.lr_scheduler = lr_scheduler
-        self.log_step = 50
+        self.log_step = 100
 
         self.train_metrics = MetricTracker(
-            "loss", "grad norm", *[m.name for m in self.metrics], writer=self.writer
+            "loss", "grad norm", *[m.name for m in self._metrics_train], writer=self.writer
         )
         self.evaluation_metrics = MetricTracker(
-            "loss", *[m.name for m in self.metrics], writer=self.writer
+            "loss", *[m.name for m in self._metrics_test], writer=self.writer
         )
 
     @staticmethod
@@ -114,7 +116,7 @@ class Trainer(BaseTrainer):
                 self.writer.add_scalar(
                     "learning rate", self.lr_scheduler.get_last_lr()[0]
                 )
-                self._log_predictions(**batch)
+                self._log_predictions(is_validation=False, **batch)
                 self._log_spectrogram(batch["spectrogram"])
                 self._log_scalars(self.train_metrics)
                 # we don't want to reset train metrics at the start of every epoch
@@ -128,7 +130,6 @@ class Trainer(BaseTrainer):
         for part, dataloader in self.evaluation_dataloaders.items():
             val_log = self._evaluation_epoch(epoch, part, dataloader)
             log.update(**{f"{part}_{name}": value for name, value in val_log.items()})
-
         return log
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
@@ -154,7 +155,8 @@ class Trainer(BaseTrainer):
                 self.lr_scheduler.step()
 
         metrics.update("loss", batch["loss"].item())
-        for met in self.metrics:
+        metric_iter = self._metrics_train if is_train else self._metrics_test
+        for met in metric_iter:
             metrics.update(met.name, met(**batch))
         return batch
 
@@ -174,13 +176,14 @@ class Trainer(BaseTrainer):
                     total=len(dataloader),
             ):
                 batch = self.process_batch(
-                    batch,
-                    is_train=False,
-                    metrics=self.evaluation_metrics,
+                        batch,
+                        is_train=False,
+                        metrics=self.evaluation_metrics,
                 )
+            print("PART:", part)
             self.writer.set_step(epoch * self.len_epoch, part)
             self._log_scalars(self.evaluation_metrics)
-            self._log_predictions(**batch)
+            self._log_predictions(is_validation=True, **batch)
             self._log_spectrogram(batch["spectrogram"])
 
         # add histogram of model parameters to the tensorboard
@@ -205,6 +208,8 @@ class Trainer(BaseTrainer):
             log_probs_length,
             audio_path,
             examples_to_log=10,
+            examples_to_beam=15,
+            is_validation=False,
             *args,
             **kwargs,
     ):
