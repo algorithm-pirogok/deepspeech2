@@ -92,6 +92,8 @@ def main(config, out_file, mode):
                 for key in ['pred_text_argmax']:
                     metrcics[key[5:]].append(_compute_metrics(res['ground_truth'], res[key]))
 
+            logger.info(f"butch_num {batch_num}, len_of_object {len(metrcics['text_argmax'])}")
+
             for key, history in metrcics.items():
                 wer, cer = zip(*history)
                 wer = np.mean(wer)
