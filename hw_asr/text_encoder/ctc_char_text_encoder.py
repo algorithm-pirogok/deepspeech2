@@ -1,8 +1,12 @@
+import os.path
 from collections import defaultdict
 from typing import List, NamedTuple
 
+import shutil
+import wget
 import torch
 from pyctcdecode import build_ctcdecoder
+import gzip
 
 from .char_text_encoder import CharTextEncoder
 
@@ -12,6 +16,49 @@ class Hypothesis(NamedTuple):
     prob: float
 
 
+class Language_Model:
+
+    VOCAB_LINK = "https://www.openslr.org/resources/11/librispeech-vocab.txt"
+    MODEL_LINK = "https://www.openslr.org/resources/11/3-gram.pruned.1e-7.arpa.gz"
+
+    def __init__(self,
+                 labels,
+                 path_to_lm: str = None,
+                 path_to_vocab: str = None):
+        if path_to_lm is None:
+            self._download_model()
+            path_to_lm = self._download_model()
+        if path_to_vocab is None:
+            path_to_vocab = self._download_vocab()
+        unigrams = self._read_unigrams(path_to_vocab)
+        self.language_model = build_ctcdecoder(labels=labels, unigrams=unigrams, kenlm_model_path=path_to_lm)
+
+    def _download_model(self):
+        path_to_vocab = "data/lm/"
+        if not os.path.exists(f"{path_to_vocab}/3-gram.pruned.1e-7.arpa.gz"):
+            wget.download(self.MODEL_LINK, out=path_to_vocab)
+
+        model_path = f"{path_to_vocab}language_model.arpa"
+
+        if not os.path.exists(model_path):
+            with gzip.open(f"{path_to_vocab}/language_model.arpa.gz", 'rb') as archive_file:
+                with gzip.open(model_path, 'wb') as gzip_file:
+                    shutil.copyfileobj(archive_file, gzip_file)
+
+        return model_path
+
+    def _download_vocab(self):
+        path_to_vocab = "data/lm/"
+        if not os.path.exists(f"{path_to_vocab}/librispeech-vocab.txt"):
+            wget.download(self.VOCAB_LINK, out=path_to_vocab)
+        return f"{path_to_vocab}/librispeech-vocab.txt"
+
+    def _read_unigrams(self, path):
+        with open(path, 'r') as f:
+            ans = [line.strip() for line in f]
+        return ans
+
+
 class CTCCharTextEncoder(CharTextEncoder):
     EMPTY_TOK = "^"
 
@@ -19,7 +66,7 @@ class CTCCharTextEncoder(CharTextEncoder):
         super().__init__(alphabet)
         vocab = [self.EMPTY_TOK] + list(self.alphabet)
         self.decoding_mode = "ctc" if path_to_lm is None else "lm"
-        self.decoder = build_ctcdecoder([''] + list(self.alphabet), kenlm_model_path=path_to_lm)
+        self.decoder = Language_Model([''] + [s.upper() for s in self.alphabet])
         self.ind2char = dict(enumerate(vocab))
         self.char2ind = {v: k for k, v in self.ind2char.items()}
 
@@ -75,4 +122,6 @@ class CTCCharTextEncoder(CharTextEncoder):
     def lm_beam_search(self, probs: torch.tensor, probs_length, **kwargs):
         assert len(probs.shape) == 2
         probs = probs[:probs_length].detach().cpu().numpy()
-        return self.decoder.decode(probs)
+        ans = self.decoder.language_model.decode(probs).lower()
+        print(ans)
+        return ans

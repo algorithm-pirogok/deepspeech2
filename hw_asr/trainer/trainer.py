@@ -208,8 +208,6 @@ class Trainer(BaseTrainer):
             log_probs_length,
             audio_path,
             examples_to_log=10,
-            examples_to_beam=15,
-            is_validation=False,
             *args,
             **kwargs,
     ):
