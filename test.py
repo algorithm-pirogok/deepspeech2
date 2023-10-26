@@ -20,7 +20,7 @@ from hw_asr.utils.parse_config import ConfigParser
 DEFAULT_CHECKPOINT_PATH = ROOT_PATH / "default_test_model" / "checkpoint.pth"
 
 
-def main(config, out_file, mode):
+def main(config, out_file, mode, pool):
     def _compute_metrics(target, pred):
         return calc_wer(target, pred), calc_cer(target, pred)
 
@@ -67,7 +67,12 @@ def main(config, out_file, mode):
             )
             batch["probs"] = batch["log_probs"].exp().cpu()
             batch["argmax"] = batch["probs"].argmax(-1)
-            for i in range(len(batch["text"])):
+
+            language_model_ans = text_encoder.lm_batch_beam_search(batch["logits"],
+                                                                   batch["log_probs_length"],
+                                                                   pool)
+
+            for i, lm_ans in enumerate(language_model_ans):
                 argmax = batch["argmax"][i]
                 argmax = argmax[: int(batch["log_probs_length"][i])]
                 results.append(
@@ -77,9 +82,7 @@ def main(config, out_file, mode):
                         "pred_text_beam_search": text_encoder.ctc_beam_search(
                             batch["probs"][i], batch["log_probs_length"][i], beam_size=30
                         )[0].text,
-                        "pred_language_model": text_encoder.lm_beam_search(
-                            batch["logits"][i], batch["log_probs_length"][i]
-                        )
+                        "pred_language_model": lm_ans
                     }
                 )
 
@@ -147,7 +150,7 @@ if __name__ == "__main__":
     args.add_argument(
         "-b",
         "--batch-size",
-        default=15,
+        default=10,
         type=int,
         help="Test dataset batch size",
     )
@@ -200,5 +203,5 @@ if __name__ == "__main__":
     # assert config.config.get("data", {}).get("test", None) is not None
     config["data"][args.mode]["batch_size"] = args.batch_size
     config["data"][args.mode]["n_jobs"] = args.jobs
-
-    main(config, args.output, args.mode)
+    with multiprocessing.Pool() as pool:
+        main(config, args.output, args.mode, pool)
