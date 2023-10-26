@@ -81,7 +81,7 @@ def main(config, out_file, mode):
                             "ground_truth": batch["text"][i],
                             "pred_text_argmax": text_encoder.ctc_decode(argmax.cpu().numpy()),
                             "pred_text_beam_search": text_encoder.ctc_beam_search(
-                                batch["probs"][i], batch["log_probs_length"][i], beam_size=20
+                                batch["probs"][i], batch["log_probs_length"][i], beam_size=25
                             )[0].text,
                             "pred_language_model": lm_ans
                         }
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     args.add_argument(
         "-b",
         "--batch-size",
-        default=10,
+        default=45,
         type=int,
         help="Test dataset batch size",
     )
