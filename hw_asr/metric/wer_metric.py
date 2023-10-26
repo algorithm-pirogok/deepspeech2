@@ -1,6 +1,5 @@
 from typing import List
 
-from autocorrect import Speller
 import torch
 from torch import Tensor
 
@@ -12,7 +11,6 @@ from hw_asr.metric.utils import calc_wer
 class WERMetric(BaseMetric):
     def __init__(self, text_encoder: BaseTextEncoder, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.speller = Speller(fast=True)
         self.text_encoder = text_encoder
 
     def __call__(self, log_probs: Tensor, log_probs_length: Tensor, text: List[str], **kwargs):
@@ -41,7 +39,6 @@ class WERMetric(BaseMetric):
             lm = getattr(self.text_encoder, "lm_beam_search")
             for log_prob_vec, length, target_text in zip(log_probs, lengths, text):
                 pred_text = lm(log_prob_vec, length, **kwargs)
-                pred_text = self.speller(pred_text)
                 target_text = BaseTextEncoder.normalize_text(target_text)
                 wers.append(calc_wer(target_text, pred_text))
         return sum(wers) / len(wers)

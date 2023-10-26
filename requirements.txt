@@ -8,7 +8,6 @@ pandas
 
 kenlm
 wget
-autocorrect
 speechbrain~=0.5.12
 datasets
 torch_audiomentations

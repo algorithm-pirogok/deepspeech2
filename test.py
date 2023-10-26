@@ -1,11 +1,16 @@
 import argparse
+from collections import defaultdict
 import json
+import multiprocessing
 import os
 from pathlib import Path
 
+import numpy as np
 import torch
 from tqdm import tqdm
 
+import hw_asr.model as module_mode
+from hw_asr.metric.utils import calc_cer, calc_wer
 import hw_asr.model as module_model
 from hw_asr.trainer import Trainer
 from hw_asr.utils import ROOT_PATH
@@ -15,7 +20,10 @@ from hw_asr.utils.parse_config import ConfigParser
 DEFAULT_CHECKPOINT_PATH = ROOT_PATH / "default_test_model" / "checkpoint.pth"
 
 
-def main(config, out_file):
+def main(config, out_file, mode):
+    def _compute_metrics(target, pred):
+        return calc_wer(target, pred), calc_cer(target, pred)
+
     logger = config.get_logger("test")
 
     # define cpu or gpu if possible
@@ -43,9 +51,10 @@ def main(config, out_file):
     model.eval()
 
     results = []
+    metrcics = defaultdict(list)
 
     with torch.no_grad():
-        for batch_num, batch in enumerate(tqdm(dataloaders["test"])):
+        for batch_num, batch in enumerate(tqdm(dataloaders[mode])):
             batch = Trainer.move_batch_to_device(batch, device)
             output = model(**batch)
             if type(output) is dict:
@@ -58,20 +67,40 @@ def main(config, out_file):
             )
             batch["probs"] = batch["log_probs"].exp().cpu()
             batch["argmax"] = batch["probs"].argmax(-1)
+            # with multiprocessing.Pool() as multy_pool:
+            #    language_model_res = text_encoder.lm_batch_beam_search(batch["logits"],
+            #                                                           batch["log_probs_length"],
+            #                                                           multy_pool,
+            #                                                           beam_size=150)
             for i in range(len(batch["text"])):
                 argmax = batch["argmax"][i]
                 argmax = argmax[: int(batch["log_probs_length"][i])]
                 results.append(
                     {
-                        "ground_trurh": batch["text"][i],
+                        "ground_truth": batch["text"][i],
                         "pred_text_argmax": text_encoder.ctc_decode(argmax.cpu().numpy()),
                         "pred_text_beam_search": text_encoder.ctc_beam_search(
                             batch["probs"][i], batch["log_probs_length"][i], beam_size=100
-                        )[:10],
+                        )[0].text,
+                        "pred_language_model": text_encoder.lm_beam_search(
+                            batch["logits"][i], batch["log_probs_length"][i]
+                        )
                     }
                 )
-    with Path(out_file).open("w") as f:
-        json.dump(results, f, indent=2)
+
+            for res in results:
+                for key in ['pred_text_argmax', 'pred_text_beam_search', 'pred_language_model']:
+                    metrcics[key[5:]].append(_compute_metrics(res['ground_truth'], res[key]))
+
+            for key, history in metrcics.items():
+                wer, cer = zip(*history)
+                wer = np.mean(wer)
+                cer = np.mean(cer)
+                logger.info(f'{mode} {key}_WER = {wer}')
+                logger.info(f'{mode} {key}_CER = {cer}')
+
+            with Path(out_file).open("w") as f:
+                json.dump(results, f, indent=2)
 
 
 if __name__ == "__main__":
@@ -89,6 +118,13 @@ if __name__ == "__main__":
         default=str(DEFAULT_CHECKPOINT_PATH.absolute().resolve()),
         type=str,
         help="path to latest checkpoint (default: None)",
+    )
+    args.add_argument(
+        "-m",
+        "--mode",
+        default="test",
+        type=str,
+        help="mode for testing: clean or other",
     )
     args.add_argument(
         "-d",
@@ -114,7 +150,7 @@ if __name__ == "__main__":
     args.add_argument(
         "-b",
         "--batch-size",
-        default=20,
+        default=10,
         type=int,
         help="Test dataset batch size",
     )
@@ -164,9 +200,8 @@ if __name__ == "__main__":
                 ],
             }
         }
+    # assert config.config.get("data", {}).get("test", None) is not None
+    config["data"][args.mode]["batch_size"] = args.batch_size
+    config["data"][args.mode]["n_jobs"] = args.jobs
 
-    assert config.config.get("data", {}).get("test", None) is not None
-    config["data"]["test"]["batch_size"] = args.batch_size
-    config["data"]["test"]["n_jobs"] = args.jobs
-
-    main(config, args.output)
+    main(config, args.output, args.mode)

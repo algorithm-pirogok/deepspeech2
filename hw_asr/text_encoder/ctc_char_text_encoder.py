@@ -82,7 +82,7 @@ class CTCCharTextEncoder(CharTextEncoder):
         return ''.join(results)
 
     def ctc_beam_search(self, probs: torch.tensor, probs_length,
-                        beam_size: int = 15, **kwargs) -> List[Hypothesis]:
+                        beam_size: int = 1, **kwargs) -> List[Hypothesis]:
         """
         Performs beam search and returns a list of pairs (hypothesis, hypothesis probability).
         """
@@ -119,9 +119,12 @@ class CTCCharTextEncoder(CharTextEncoder):
         hypos: List[Hypothesis] = [Hypothesis(seq, prob) for (seq, _), prob in state.items()]
         return sorted(hypos, key=lambda x: x.prob, reverse=True)
 
+    def lm_batch_beam_search(self, probs, probs_length, multy_pool, size_of_beam_search=50, **kwargs):
+        batch = [prob[:length].detach().cpu().numpy() for prob, length in zip(probs, probs_length)]
+        return self.decoder.language_model.decode_batch(multy_pool, batch, size_of_beam_search)
+
     def lm_beam_search(self, probs: torch.tensor, probs_length, **kwargs):
         assert len(probs.shape) == 2
         probs = probs[:probs_length].detach().cpu().numpy()
-        ans = self.decoder.language_model.decode(probs).lower()
-        print(ans)
+        ans = self.decoder.language_model.decode(probs, beam_width=400).lower()
         return ans
