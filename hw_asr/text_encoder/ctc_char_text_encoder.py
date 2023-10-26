@@ -126,5 +126,5 @@ class CTCCharTextEncoder(CharTextEncoder):
     def lm_beam_search(self, probs: torch.tensor, probs_length, **kwargs):
         assert len(probs.shape) == 2
         probs = probs[:probs_length].detach().cpu().numpy()
-        ans = self.decoder.language_model.decode(probs, beam_width=400).lower()
+        ans = self.decoder.language_model.decode(probs, beam_width=40).lower()
         return ans
