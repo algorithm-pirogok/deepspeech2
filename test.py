@@ -67,11 +67,6 @@ def main(config, out_file, mode):
             )
             batch["probs"] = batch["log_probs"].exp().cpu()
             batch["argmax"] = batch["probs"].argmax(-1)
-            # with multiprocessing.Pool() as multy_pool:
-            #    language_model_res = text_encoder.lm_batch_beam_search(batch["logits"],
-            #                                                           batch["log_probs_length"],
-            #                                                           multy_pool,
-            #                                                           beam_size=150)
             for i in range(len(batch["text"])):
                 argmax = batch["argmax"][i]
                 argmax = argmax[: int(batch["log_probs_length"][i])]
@@ -89,7 +84,7 @@ def main(config, out_file, mode):
                 )
 
             for res in results:
-                for key in ['pred_text_argmax']:
+                for key in ['pred_text_argmax', 'pred_text_beam_search', 'pred_language_model']:
                     metrcics[key[5:]].append(_compute_metrics(res['ground_truth'], res[key]))
 
             logger.info(f"butch_num {batch_num}, len_of_object {len(metrcics['text_argmax'])}")
@@ -152,7 +147,7 @@ if __name__ == "__main__":
     args.add_argument(
         "-b",
         "--batch-size",
-        default=10,
+        default=15,
         type=int,
         help="Test dataset batch size",
     )
