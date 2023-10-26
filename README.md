@@ -2,7 +2,8 @@
 
 ## Installation guide
 
-< Write your installation guide here >
+To start, you need to download the model from a [disk](https://drive.google.com/file/d/15ggn5IlBNqpP9XJQn0t9HcrrHfJrlVcS/view?usp=drive_link) and config from the [disk](https://drive.google.com/file/d/1zouR5gI1fqcv7yj2d-Yxd7FkztHtQBjg/view?usp=drive_link) in `default_test_data/`.
+
 
 ```shell
 pip install -r ./requirements.txt
