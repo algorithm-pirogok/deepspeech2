@@ -70,7 +70,8 @@ def main(config, out_file, mode, pool):
 
             language_model_ans = text_encoder.lm_batch_beam_search(batch["logits"],
                                                                    batch["log_probs_length"],
-                                                                   pool)
+                                                                   pool,
+                                                                   size_of_beam_search=2500)
 
             for i, lm_ans in enumerate(language_model_ans):
                 argmax = batch["argmax"][i]
@@ -80,7 +81,7 @@ def main(config, out_file, mode, pool):
                         "ground_truth": batch["text"][i],
                         "pred_text_argmax": text_encoder.ctc_decode(argmax.cpu().numpy()),
                         "pred_text_beam_search": text_encoder.ctc_beam_search(
-                            batch["probs"][i], batch["log_probs_length"][i], beam_size=30
+                            batch["probs"][i], batch["log_probs_length"][i], beam_size=20
                         )[0].text,
                         "pred_language_model": lm_ans
                     }
