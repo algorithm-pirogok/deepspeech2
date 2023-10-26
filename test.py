@@ -20,7 +20,7 @@ from hw_asr.utils.parse_config import ConfigParser
 DEFAULT_CHECKPOINT_PATH = ROOT_PATH / "default_test_model" / "checkpoint.pth"
 
 
-def main(config, out_file, mode, pool):
+def main(config, out_file, mode):
     def _compute_metrics(target, pred):
         return calc_wer(target, pred), calc_cer(target, pred)
 
@@ -54,54 +54,54 @@ def main(config, out_file, mode, pool):
     metrcics = defaultdict(list)
 
     with torch.no_grad():
-        for batch_num, batch in enumerate(tqdm(dataloaders[mode])):
-            batch = Trainer.move_batch_to_device(batch, device)
-            output = model(**batch)
-            if type(output) is dict:
-                batch.update(output)
-            else:
-                batch["logits"] = output
-            batch["log_probs"] = torch.log_softmax(batch["logits"], dim=-1)
-            batch["log_probs_length"] = model.transform_input_lengths(
-                batch["spectrogram_length"]
-            )
-            batch["probs"] = batch["log_probs"].exp().cpu()
-            batch["argmax"] = batch["probs"].argmax(-1)
-
-            language_model_ans = text_encoder.lm_batch_beam_search(batch["logits"],
-                                                                   batch["log_probs_length"],
-                                                                   pool,
-                                                                   size_of_beam_search=2500)
-
-            for i, lm_ans in enumerate(language_model_ans):
-                argmax = batch["argmax"][i]
-                argmax = argmax[: int(batch["log_probs_length"][i])]
-                results.append(
-                    {
-                        "ground_truth": batch["text"][i],
-                        "pred_text_argmax": text_encoder.ctc_decode(argmax.cpu().numpy()),
-                        "pred_text_beam_search": text_encoder.ctc_beam_search(
-                            batch["probs"][i], batch["log_probs_length"][i], beam_size=20
-                        )[0].text,
-                        "pred_language_model": lm_ans
-                    }
+        with multiprocessing.Pool() as pool:
+            for batch_num, batch in enumerate(tqdm(dataloaders[mode])):
+                batch = Trainer.move_batch_to_device(batch, device)
+                output = model(**batch)
+                if type(output) is dict:
+                    batch.update(output)
+                else:
+                    batch["logits"] = output
+                batch["log_probs"] = torch.log_softmax(batch["logits"], dim=-1)
+                batch["log_probs_length"] = model.transform_input_lengths(
+                    batch["spectrogram_length"]
                 )
+                batch["probs"] = batch["log_probs"].exp().cpu()
+                batch["argmax"] = batch["probs"].argmax(-1)
+                language_model_ans = text_encoder.lm_batch_beam_search(batch["logits"],
+                                                                       batch["log_probs_length"],
+                                                                       pool,
+                                                                       size_of_beam_search=2500)
 
-            for res in results:
-                for key in ['pred_text_argmax', 'pred_text_beam_search', 'pred_language_model']:
-                    metrcics[key[5:]].append(_compute_metrics(res['ground_truth'], res[key]))
+                for i, lm_ans in enumerate(language_model_ans):
+                    argmax = batch["argmax"][i]
+                    argmax = argmax[: int(batch["log_probs_length"][i])]
+                    results.append(
+                        {
+                            "ground_truth": batch["text"][i],
+                            "pred_text_argmax": text_encoder.ctc_decode(argmax.cpu().numpy()),
+                            "pred_text_beam_search": text_encoder.ctc_beam_search(
+                                batch["probs"][i], batch["log_probs_length"][i], beam_size=20
+                            )[0].text,
+                            "pred_language_model": lm_ans
+                        }
+                    )
 
-            logger.info(f"butch_num {batch_num}, len_of_object {len(metrcics['text_argmax'])}")
+                for res in results:
+                    for key in ['pred_text_argmax', 'pred_text_beam_search', 'pred_language_model']:
+                        metrcics[key[5:]].append(_compute_metrics(res['ground_truth'], res[key]))
 
-            for key, history in metrcics.items():
-                wer, cer = zip(*history)
-                wer = np.mean(wer)
-                cer = np.mean(cer)
-                logger.info(f'{mode} {key}_WER = {wer}')
-                logger.info(f'{mode} {key}_CER = {cer}')
+                logger.info(f"butch_num {batch_num}, len_of_object {len(metrcics['text_argmax'])}")
 
-            with Path(out_file).open("w") as f:
-                json.dump(results, f, indent=2)
+                for key, history in metrcics.items():
+                    wer, cer = zip(*history)
+                    wer = np.mean(wer)
+                    cer = np.mean(cer)
+                    logger.info(f'{mode} {key}_WER = {wer}')
+                    logger.info(f'{mode} {key}_CER = {cer}')
+
+                with Path(out_file).open("w") as f:
+                    json.dump(results, f, indent=2)
 
 
 if __name__ == "__main__":
@@ -204,5 +204,4 @@ if __name__ == "__main__":
     # assert config.config.get("data", {}).get("test", None) is not None
     config["data"][args.mode]["batch_size"] = args.batch_size
     config["data"][args.mode]["n_jobs"] = args.jobs
-    with multiprocessing.Pool() as pool:
-        main(config, args.output, args.mode, pool)
+    main(config, args.output, args.mode)
